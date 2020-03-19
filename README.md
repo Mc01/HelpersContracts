@@ -1,5 +1,11 @@
 # HelpersContracts
 
+Local assumptions:
+- `docker-compose`
+- `ganache`
+- tests for API
+- tests for contracts
+
 ## Architecture
 
 1. Frontend
@@ -13,7 +19,7 @@
 - keys on backend layer
 - transaction fees on backend keys
 - integrates Web3 as API
-4. Vyper layer
+4. Vyper layer (`VerifiedOpinion` contract)
 - `whitelist` -> premium users/integrators
 - `opinionList` -> read for whitelisted addresses
 - `opinionMapping` (phone_number -> []opinions) -> free access
