@@ -1,17 +1,25 @@
-FROM vyperlang/vyper:0.1.0b16
+FROM python:latest
 
-RUN apt-get update
-RUN apt-get install -y vim git curl gnupg gnupg1 gnupg2
+# Upgrade PIP
+ENV PYTHONDONTWRITEBYTECODE=1
+RUN pip install --upgrade pip
 
-ENTRYPOINT /bin/bash
+# Install Vyper
+RUN git clone https://github.com/vyperlang/vyper.git /vyper
+WORKDIR /vyper
+RUN make
+RUN vyper --version
 
-# Node.js + npm
+# Install Ganache
 RUN curl -sL https://deb.nodesource.com/setup_12.x | bash -
 RUN apt-get install -y nodejs
 RUN npm install npm@latest -g
+RUN npm install -g ganache-cli
 
-# Truffle
+# Setup App
+COPY . /app
 WORKDIR /app
-COPY package.json /app/package.json
-RUN npm i
-RUN npm run compile
+RUN pip install -r requirements.txt
+RUN brownie compile
+
+ENTRYPOINT /bin/bash
