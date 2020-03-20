@@ -3,6 +3,8 @@
 Local assumptions:
 - `docker-compose`
 - `ganache`
+- `brownie`
+- `vyper`
 - tests for API
 - tests for contracts
 
