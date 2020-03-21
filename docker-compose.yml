@@ -33,7 +33,7 @@ services:
             - "8080:8080"
         volumes:
             - ./build/contracts/CharityProfile.json:/app/abi.json
-            - ./backend/main.py:/app/main.py
+            - ./backend/app.py:/app/app.py
             - ./db.db:/app/db.db
         networks:
             - help_app

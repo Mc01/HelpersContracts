@@ -3,6 +3,6 @@ RUN apt-get update -y
 WORKDIR /app
 COPY requirements.txt .
 RUN pip install -r requirements.txt
-COPY main.py .
+COPY app.py .
 ENTRYPOINT ["python"]
-CMD ["main.py"]
+CMD ["app.py"]
