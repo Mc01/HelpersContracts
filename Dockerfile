@@ -1,25 +1,15 @@
-FROM python:latest
+FROM ubuntu:bionic
+WORKDIR /usr/src
 
-# Upgrade PIP
-ENV PYTHONDONTWRITEBYTECODE=1
-RUN pip install --upgrade pip
+RUN  apt-get update
 
-# Install Vyper
-RUN git clone https://github.com/vyperlang/vyper.git /vyper
-WORKDIR /vyper
-RUN make
-RUN vyper --version
+ENV TZ=America/Vancouver
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
-# Install Ganache
-RUN curl -sL https://deb.nodesource.com/setup_12.x | bash -
-RUN apt-get install -y nodejs
-RUN npm install npm@latest -g
-RUN npm install -g ganache-cli
+RUN apt-get install -y python3.6 python3-pip python3-venv python3-tk wget curl git npm nodejs
+RUN pip3 install wheel pip setuptools virtualenv py-solc-x eth-brownie
 
-# Setup App
-COPY . /app
 WORKDIR /app
-RUN pip install -r requirements.txt
-RUN brownie compile
+COPY . .
 
 ENTRYPOINT /bin/bash

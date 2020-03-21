@@ -1,0 +1,43 @@
+version: "3.7"
+services:
+    main:
+        build: .
+        container_name: helper_app
+        ports:
+            - "7545:7545"
+            - "8000:8000"
+        entrypoint: bash
+        volumes:
+            - ./:/app/
+        networks:
+            - help_app
+
+    ganache:
+        build:
+            context: ./ganache/
+        container_name: ganache
+        restart: always
+        volumes:
+            - ./ganache/package.json:/app/package.json
+        ports:
+            - "7545:7545"
+        networks:
+            - help_app
+
+    backend:
+        build:
+            context: ./backend/
+        container_name: backend
+        restart: always
+        ports:
+            - "8080:8080"
+        volumes:
+            - ./build/contracts/CharityProfile.json:/app/abi.json
+            - ./backend/app.py:/app/app.py
+            - ./db.db:/app/db.db
+        networks:
+            - help_app
+
+networks:
+    help_app:
+        name: help_app

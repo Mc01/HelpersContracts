@@ -10,7 +10,7 @@ network:
     networks:
         # any settings given here will replace the defaults
         development:
-            host: http://127.0.0.1
+            host: http://ganache:7545
             gas_price: 0
             persist: false
             reverting_tx_gas_limit: 6721975

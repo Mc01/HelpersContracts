@@ -27,6 +27,7 @@ struct Review:
     description: bytes32
     url: bytes32
     exists: bool
+    localisation: bytes32
 
 # Verified Profile
 struct Profile:
@@ -75,6 +76,7 @@ def __init__():
 # .
 # .
 @private
+@constant
 def __is_valid_scoring_value(value: uint256):
     assert value in [
         NEEDS_IMPROVEMENT,
@@ -83,6 +85,7 @@ def __is_valid_scoring_value(value: uint256):
     ]
 
 @private
+@constant
 def __parse_score(score: Score) -> Score:
     self.__is_valid_scoring_value(score.effectivness)
     self.__is_valid_scoring_value(score.humanism)
@@ -109,12 +112,14 @@ def __assert_valid_sender(msg_sender: address):
 # .
 # .
 @private
+@constant
 def __get_new_profile(profile_id: bytes32) -> Profile:
     profile: Profile = self.profiles[profile_id]
     assert not profile.exists
     return profile
 
 @private
+@constant
 def __get_existing_profile(profile_id: bytes32) -> Profile:
     profile: Profile = self.profiles[profile_id]
     assert profile.exists
@@ -125,6 +130,7 @@ def __get_existing_profile(profile_id: bytes32) -> Profile:
 # .
 # .
 @private
+@constant
 def __get_new_review(profile_id: bytes32, review_no: uint256) -> Review:
     review: Review = self.reviews[profile_id][review_no]
     assert not review.exists
@@ -165,25 +171,34 @@ def create_profile(
     self.last_profile_no += 1
 
 @public
+@constant
+def get_review_no(profile_id: bytes32) -> uint256:
+    profile: Profile = self.__get_existing_profile(profile_id)
+    return profile.last_review_no
+
+@public
 def add_review(
     profile_id: bytes32,
     reviewer_name: bytes32,
     score: Score,
     description: bytes32,
     url: bytes32,
+    localisation: bytes32
 ):
     self.__assert_valid_sender(msg.sender)
     # Assert profile exist
     profile: Profile = self.__get_existing_profile(profile_id)
     # Assert review does not exist
-    review: Review = self.__get_new_review(profile_id, profile.last_review_no)
+    review: Review = self.reviews[profile_id][profile.last_review_no]
     # Fill review
     review.reviewer_name = reviewer_name
     review.score = self.__parse_score(score)
     review.description = description
     review.url = url
     review.exists = True
+    review.localisation = localisation
     # Save review to storage
     self.reviews[profile_id][profile.last_review_no] = review
     # Increment last review number
     profile.last_review_no += 1
+    self.profiles[profile_id] = profile
