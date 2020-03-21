@@ -6,3 +6,6 @@ deploy:
 
 test:
 	brownie test
+
+coverage:
+	brownie test --coverage
