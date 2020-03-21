@@ -1,5 +1,4 @@
 #!/usr/bin/python3
-from eth_utils.conversions import to_hex, to_bytes
 
 def __hex_bytes_string(string):
     bytes_string = bytes(string.encode('utf-8'))
