@@ -157,6 +157,8 @@ def create_profile(
     profile.profile_id = profile_id
     profile.last_review_no = 0
     profile.exists = True
+    # Save profile to storage
+    self.profiles[profile_id] = profile
     # Update profile ids with new profile id
     self.profile_ids[self.last_profile_no] = profile_id
     # Increment last profile number
@@ -181,5 +183,7 @@ def add_review(
     review.description = description
     review.url = url
     review.exists = True
+    # Save review to storage
+    self.reviews[profile_id][profile.last_review_no] = review
     # Increment last review number
     profile.last_review_no += 1
