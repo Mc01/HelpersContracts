@@ -1,7 +1,11 @@
 #!/usr/bin/python3
-
 from brownie import *
+from os import environ
 
 
 def main():
-    CharityProfile.deploy({'from': accounts[0]})
+    if 'PK' in environ:
+        accounts.add(environ['PK'])
+    account = accounts[0]
+
+    CharityProfile.deploy({'from': account})

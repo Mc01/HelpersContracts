@@ -5,6 +5,7 @@ services:
         container_name: helper_app
         ports:
             - "7545:7545"
+            - "8000:8000"
         entrypoint: bash
         volumes:
             - ./:/app/
@@ -16,6 +17,8 @@ services:
             context: ./ganache/
         container_name: ganache
         restart: always
+        volumes:
+            - ./ganache/package.json:/app/package.json
         ports:
             - "7545:7545"
         networks:

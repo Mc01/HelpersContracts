@@ -7,9 +7,8 @@ from web3 import Web3, HTTPProvider
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
 
-PK = '0x133ddc5032a64f4047a7359741fb8560c1dfd31e077ccf4073421cb5d995911b'
-AA = '0x05FE43dddAaC4201978550Fd25c69bBea48Ba230'
-ADDRESS = '0xDf41f24cF1da31BF4510B5879e1659a39D178034'
+ACCOUNT = '0x6178923f53573Ef3f7ABda09498e53023A82ae31'
+ADDRESS = '0x6bBE47c3d5E82e0Fc0CB5523B0c75A6787f2274B'
  
 # ------------ SETUP PART ---------------------------------
 
@@ -39,58 +38,64 @@ class User(SerializableMixin, db.Model):
     rating_number = db.Column(db.Integer, default=0)
     rating_points = db.Column(db.Integer, default=0)
 
-    columns_to_serialize = ('id', 'username', 'rating')
+    columns_to_serialize = (
+        'id',
+        'username',
+        'rating',
+        'token',
+        'reviews_number',
+    )
+
+    @property
+    def reviews_number(self):
+        return charity_profile.functions.profiles__last_review_no(self.token).call()
 
     @property
     def rating(self):
         return self.rating_points / self.rating_number if self.rating_number > 0 else 0.0
 
     def __init__(self, *args, **kwargs):
-        kwargs['token'] = secrets.token_bytes(32)
-        print(charity_profile.functions.create_profile(
+        # kwargs['token'] = secrets.token_bytes(32)
+        charity_profile.functions.create_profile(
             kwargs['username'].encode(),
-            kwargs['token']
-        ).transact({'from': AA}))
+            kwargs['token'].encode(),
+        ).transact({'from': ACCOUNT})
         return super().__init__(*args, **kwargs)
 
 
 class Help(SerializableMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
+    note = db.Column(db.Text, default='', nullable=False)
+    categories = db.Column(db.Text, default='[]', nullable=False)
     start_data = db.Column(db.DateTime(), unique=False, nullable=True, default=datetime.utcnow)
-    name = db.Column(db.String(150), unique=False, nullable=False)
+    accepted_data = db.Column(db.DateTime(), unique=False, nullable=True, default=datetime.utcnow)
+    end_data = db.Column(db.DateTime(), unique=False, nullable=True, default=datetime.utcnow)
 
-    helper_id = db.Column(db.Integer, db.ForeignKey(User.id), nullable=False)
-    receiver_id = db.Column(db.Integer, db.ForeignKey(User.id), nullable=False)
+    helper_id = db.Column(db.Integer, db.ForeignKey(User.id), nullable=True)
+    requester_id = db.Column(db.Integer, db.ForeignKey(User.id), nullable=True)
 
-    finished_by_helper = db.Column(db.Boolean, default=False)
-    finished_by_receiver = db.Column(db.Boolean, default=False)
-
+    finished = db.Column(db.Boolean, default=False)
     review_id = db.Column(db.String(32), default=None, nullable=True)
 
-    columns_to_serialize = ('id', 'start_data', 'helper_id', 'receiver_id', 'finished_by_helper', 'finished_by_receiver', 'review_id')
-
-class Offer(SerializableMixin, db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(150), unique=False, nullable=False)
-    user_id = db.Column(db.Integer, db.ForeignKey(User.id), nullable=False)
-
-    columns_to_serialize = ('id', 'name', 'user_id')
-
-class Request(SerializableMixin, db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(150), unique=False, nullable=False)
-    user_id = db.Column(db.Integer, db.ForeignKey(User.id), nullable=False)
-
-    columns_to_serialize = ('id', 'name', 'user_id')
+    columns_to_serialize = (
+        'id',
+        'start_data',
+        'accepted_data',
+        'end_data',
+        'helper_id',
+        'requester_id',
+        'finished',
+        'review_id'
+    )
 
 db.create_all()
 
 if User.query.count() == 0:
     db.session.add(
-        User(username='user1', password='test')
+        User(username='user1', password='test', token='sec1')
     )
     db.session.add(
-        User(username='user2', password='test')
+        User(username='user2', password='test', token='sec2')
     )
     db.session.commit()
 
@@ -119,58 +124,34 @@ def profile():
 
 @app.route('/web3')
 def web3():
-
     return str(charity_profile.functions.owner().call())
 
-
-@app.route('/create_request', methods=['POST'])
+@app.route('/create', methods=['POST'])
 @jwt_required()
 def create_request():
     data = request.get_json()
-    data['user_id'] = current_identity.id
-    request = Offer(**data)
-    db.session.add(request)
-    db.session.commit()
-    return request.as_dict()
-
-
-@app.route('/create_offer', methods=['POST'])
-@jwt_required()
-def create_offer():
-    data = request.get_json()
-    data['user_id'] = current_identity.id
-    offer = Offer(**data)
-    db.session.add(offer)
-    db.session.commit()
-    return offer.as_dict()
-
-
-@app.route('/offer_help/<request_id>')
-@jwt_required()
-def offer_help(request_id):
-    request = Request.query.get(request_id)
-    help = Help(
-        helper_id=current_identity.id,
-        receiver_id=request.user_id,
-        name=request.name,
-    )
+    mode = data.pop('mode')
+    if mode == 'get':
+        data['requester_id'] = current_identity.id
+    elif mode == 'give':
+        data['helper_id'] = current_identity.id
+    help = Help(**data)
     db.session.add(help)
-    db.session.delete(request)
-    db.commit()
+    db.session.commit()
     return help.as_dict()
 
 
-@app.route('/receive_help/<offer_id>')
+
+@app.route('/accept/<request_id>')
 @jwt_required()
-def receive_help(offer_id):
-    offer = Offer.query.get(offer_id)
-    help = Help(
-        helper_id=offer.user_id,
-        receiver_id=current_identity.id,
-        name=offer.name,
-    )
-    db.session.add(help)
-    db.session.delete(offer)
+def accept(request_id):
+    help = Help.query.get(request_id)
+    if help.requester_id == None:
+        help.requester_id = current_identity.id
+        help.accepted_data = datetime.utcnow()
+    elif help.helper_id == None:
+        help.helper_id = current_identity.id
+        help.accepted_data = datetime.utcnow()
     db.session.commit()
     return help.as_dict()
 
@@ -179,40 +160,45 @@ def receive_help(offer_id):
 @jwt_required()
 def finish_help(help_id):
     help = Help.query.get(help_id)
-    if help.receiver_id == current_identity.id:
-        help.finished_by_receiver = True
-    elif help.helper_id == current_identity.id:
-        help.finished_by_helper = True
-    db.session.commit()
+    if help.requester_id == current_identity.id:
+        help.finished = True
+        help.end_data = datetime.utcnow()
+        db.session.commit()
     return help.as_dict()
 
 
-def add_review(rated_user_id, score=1, brief='', url=''):
-    token = User.query.get(rated_user_id).token
+def _add_review(rated_user_id, score=1, brief='', url=''):
+    token = User.query.get(1).token
     reviewer_name = current_identity.username
     charity_profile.functions.add_review(
         token,
         reviewer_name.encode(),
         score,
         brief.encode(),
-        url.encode()
-    ).transact({'from': AA})
+        url.encode(),
+    ).transact({'from': ACCOUNT})
 
 
-@app.route('/give_review/<help_id>', methods=['POST'])
+@app.route('/add_review/<help_id>', methods=['POST'])
 @jwt_required()
-def give_review(help_id):
-    help = Help.query.get(help_id)
-    data = request.get_json()
-    if (help.receiver_id == current_identity.id and 
-    help.finished_by_helper and help.finished_by_receiver):
-        add_review(
-            help.helper_id,
-            data['score'],
-            data['review']
-        )
-        db.session.commit()
-    return help.as_dict()
+def add_review(help_id):
+    return str(charity_profile.functions.add_review(
+        current_identity.token.encode(),
+        "sratatata".encode(),
+        [1,2,3,4,5,5],
+        "note".encode(),
+        "url".encode(),
+    ).transact({'from': ACCOUNT}))
+    # help = Help.query.get(help_id)
+    # data = request.get_json()
+    # # if (help.requester_id == current_identity.id and help.finished):
+    # _add_review(
+    #     help.helper_id,
+    #     data['score'],
+    #     data['review']
+    # )
+    # db.session.commit()
+    # return help.as_dict()
 
 
 if __name__ == '__main__':
