@@ -4,10 +4,12 @@ services:
         build: .
         container_name: helper_app
         ports:
-        - "7545:7545"
+            - "7545:7545"
         entrypoint: bash
         volumes:
-        - ./:/app/
+            - ./:/app/
+        networks:
+            - help_app
 
     ganache:
         build:
@@ -27,6 +29,7 @@ services:
         ports:
             - "8080:8080"
         volumes:
+            - ./build/contracts/CharityProfile.json:/app/abi.json
             - ./backend/main.py:/app/main.py
             - ./db.db:/app/db.db
         networks:

@@ -1,3 +1,5 @@
+import json
+import secrets
 from flask import Flask, request
 from flask_jwt import JWT, jwt_required, current_identity
 from werkzeug.security import safe_str_cmp
@@ -5,6 +7,9 @@ from web3 import Web3, HTTPProvider
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
 
+PK = '0x133ddc5032a64f4047a7359741fb8560c1dfd31e077ccf4073421cb5d995911b'
+AA = '0x05FE43dddAaC4201978550Fd25c69bBea48Ba230'
+ADDRESS = '0xDf41f24cF1da31BF4510B5879e1659a39D178034'
  
 # ------------ SETUP PART ---------------------------------
 
@@ -14,6 +19,13 @@ app.config['SECRET_KEY'] = '!@#$%^1234567abcde'
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:////app/db.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = True
 db = SQLAlchemy(app)
+w3 = Web3(HTTPProvider('http://ganache:7545'))
+with open('/app/abi.json') as f:
+    abi = json.load(f)['abi']
+charity_profile = w3.eth.contract(
+    address=ADDRESS,
+    abi=abi
+)
 
 class SerializableMixin:
     def as_dict(self):
@@ -23,7 +35,7 @@ class User(SerializableMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
     password = db.Column(db.String(120), unique=False, nullable=False)
-    address = db.Column(db.String(70), unique=True, nullable=False)
+    token = db.Column(db.String(70), unique=True, nullable=False)
     rating_number = db.Column(db.Integer, default=0)
     rating_points = db.Column(db.Integer, default=0)
 
@@ -32,6 +44,14 @@ class User(SerializableMixin, db.Model):
     @property
     def rating(self):
         return self.rating_points / self.rating_number if self.rating_number > 0 else 0.0
+
+    def __init__(self, *args, **kwargs):
+        kwargs['token'] = secrets.token_bytes(32)
+        print(charity_profile.functions.create_profile(
+            kwargs['username'].encode(),
+            kwargs['token']
+        ).transact({'from': AA}))
+        return super().__init__(*args, **kwargs)
 
 
 class Help(SerializableMixin, db.Model):
@@ -45,9 +65,9 @@ class Help(SerializableMixin, db.Model):
     finished_by_helper = db.Column(db.Boolean, default=False)
     finished_by_receiver = db.Column(db.Boolean, default=False)
 
-    review_id = db.Column(db.Integer, default=None, nullable=True)
+    review_id = db.Column(db.String(32), default=None, nullable=True)
 
-    columns_to_serialize = ('id', 'start_data', 'helper_id', 'receiver_id', 'finished_by_helper', 'finished _by_receiver', 'review_id')
+    columns_to_serialize = ('id', 'start_data', 'helper_id', 'receiver_id', 'finished_by_helper', 'finished_by_receiver', 'review_id')
 
 class Offer(SerializableMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -67,10 +87,10 @@ db.create_all()
 
 if User.query.count() == 0:
     db.session.add(
-        User(username='user1', password='test', address='0x1')
+        User(username='user1', password='test')
     )
     db.session.add(
-        User(username='user2', password='test', address='0x2')
+        User(username='user2', password='test')
     )
     db.session.commit()
 
@@ -83,7 +103,6 @@ def identity(payload):
     return User.query.get(user_id)
 
 jwt = JWT(app, authenticate, identity)
-w3 = Web3(HTTPProvider('http://ganache:7545'))
 
 # ------------ MAIN PART ---------------------------------
  
@@ -100,7 +119,8 @@ def profile():
 
 @app.route('/web3')
 def web3():
-    return str(w3.eth.accounts)
+
+    return str(charity_profile.functions.owner().call())
 
 
 @app.route('/create_request', methods=['POST'])
@@ -143,20 +163,20 @@ def offer_help(request_id):
 @app.route('/receive_help/<offer_id>')
 @jwt_required()
 def receive_help(offer_id):
-    offer = Offer.query.get(request_id)
+    offer = Offer.query.get(offer_id)
     help = Help(
-        helper_id=request.user_id,
+        helper_id=offer.user_id,
         receiver_id=current_identity.id,
-        name=request.name,
+        name=offer.name,
     )
     db.session.add(help)
     db.session.delete(offer)
-    db.commit()
+    db.session.commit()
     return help.as_dict()
 
 
 @app.route('/finish_help/<help_id>')
-@jwt_required
+@jwt_required()
 def finish_help(help_id):
     help = Help.query.get(help_id)
     if help.receiver_id == current_identity.id:
@@ -167,14 +187,31 @@ def finish_help(help_id):
     return help.as_dict()
 
 
+def add_review(rated_user_id, score=1, brief='', url=''):
+    token = User.query.get(rated_user_id).token
+    reviewer_name = current_identity.username
+    charity_profile.functions.add_review(
+        token,
+        reviewer_name.encode(),
+        score,
+        brief.encode(),
+        url.encode()
+    ).transact({'from': AA})
+
+
 @app.route('/give_review/<help_id>', methods=['POST'])
-@jwt_required
+@jwt_required()
 def give_review(help_id):
     help = Help.query.get(help_id)
-    review = request.get_json()['review']
-    if help.receiver_id == current_identity.id:
-        help.review_id = 123
-    db.session.commit()
+    data = request.get_json()
+    if (help.receiver_id == current_identity.id and 
+    help.finished_by_helper and help.finished_by_receiver):
+        add_review(
+            help.helper_id,
+            data['score'],
+            data['review']
+        )
+        db.session.commit()
     return help.as_dict()
 
 
