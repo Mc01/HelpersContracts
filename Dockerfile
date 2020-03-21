@@ -1,4 +1,4 @@
-FROM python:latest
+FROM python:3.6.2
 
 # Upgrade PIP
 ENV PYTHONDONTWRITEBYTECODE=1
@@ -17,9 +17,12 @@ RUN npm install npm@latest -g
 RUN npm install -g ganache-cli
 
 # Setup App
-COPY . /app
+# for "with cache" usage
 WORKDIR /app
+COPY requirements.txt .
 RUN pip install -r requirements.txt
+
+COPY . .
 RUN brownie compile
 
 ENTRYPOINT /bin/bash

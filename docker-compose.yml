@@ -1,0 +1,37 @@
+version: "3.7"
+services:
+    main:
+        build: .
+        container_name: helper_app
+        ports:
+        - "7545:7545"
+        entrypoint: bash
+        volumes:
+        - ./:/app/
+
+    ganache:
+        build:
+            context: ./ganache/
+        container_name: ganache
+        restart: always
+        ports:
+            - "7545:7545"
+        networks:
+            - help_app
+
+    backend:
+        build:
+            context: ./backend/
+        container_name: backend
+        restart: always
+        ports:
+            - "8080:8080"
+        volumes:
+            - ./backend/main.py:/app/main.py
+            - ./db.db:/app/db.db
+        networks:
+            - help_app
+
+networks:
+    help_app:
+        name: help_app

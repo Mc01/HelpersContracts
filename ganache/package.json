@@ -1,0 +1,25 @@
+{
+    "name": "betting",
+    "version": "1.0.0",
+    "description": "",
+    "main": "truffle.js",
+    "scripts": {
+      "clean": "rimraf build",
+      "serve": "ganache-cli -e 1000000 -p 7545 -h 0.0.0.0"
+    },
+    "dependencies": {
+      "dotenv": "^8.2.0",
+      "eth-gas-reporter": "^0.2.15",
+      "ganache-cli": "^6.9.1",
+      "rimraf": "^3.0.2",
+      "web3": "^1.2.6",
+      "webpack": "^4.42.0"
+    },
+    "devDependencies": {
+      "coveralls": "^3.0.9",
+      "mocha-lcov-reporter": "^1.3.0",
+      "solidity-coverage": "^0.7.2"
+    },
+    "author": "",
+    "license": "ISC"
+  }
